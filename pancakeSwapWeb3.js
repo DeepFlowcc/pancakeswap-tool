@@ -32,6 +32,38 @@ const router = new web3.eth.Contract(routerAbiV3, PANCAKESWAP_ROUTER_ADDRESS);
 const factory = new web3.eth.Contract(factoryAbiV3, PANCAKESWAP_FACTORY_ADDRESS);
 const quoter = new web3.eth.Contract(quoterAbiV3, PANCAKESWAP_QUOTER_ADDRESS);
 
+// Add a nonce cache at the top of the file, after other global variables
+const nonceCache = {};
+
+/**
+ * Get the next available nonce for an address
+ * @param {string} address - Wallet address
+ * @returns {Promise<number>} Next available nonce
+ */
+async function getNextNonce(address) {
+  try {
+    // Get the current on-chain nonce
+    const onChainNonce = await web3.eth.getTransactionCount(address, 'pending');
+    
+    // Check if we have a cached nonce
+    if (nonceCache[address] === undefined || nonceCache[address] < onChainNonce) {
+      nonceCache[address] = onChainNonce;
+    } else {
+      // Increment the cached nonce
+      nonceCache[address]++;
+    }
+    
+    debugLog(`Using nonce ${nonceCache[address]} for ${address}`, true);
+    return nonceCache[address];
+  } catch (error) {
+    debugError('Error getting next nonce:', error);
+    // Fallback to getting the current nonce
+    const nonce = await web3.eth.getTransactionCount(address, 'pending');
+    debugLog(`Fallback to on-chain nonce: ${nonce}`, true);
+    return nonce;
+  }
+}
+
 /**
  * Helper function for conditional logging
  * @param {string} message - Message to log
@@ -699,6 +731,9 @@ async function buyToken(privateKey, tokenAddress, bnbAmount, slippagePercent = 1
       debugLog('⚠️ Using estimated price due to quoter failure. Consider using higher slippage.', true);
     }
     
+    // Get the next nonce
+    const nonce = await getNextNonce(walletAddress);
+    
     // Setup swap parameters
     const recipient = walletAddress;
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes
@@ -736,7 +771,8 @@ async function buyToken(privateKey, tokenAddress, bnbAmount, slippagePercent = 1
       data: swapData,
       value: bnbAmountWei,
       gas: Math.floor(estimatedGas * 1.1), // Add 10% buffer
-      gasPrice: gasPrice
+      gasPrice: gasPrice,
+      nonce: nonce // Add the nonce
     });
     
     // Clean up wallet
@@ -964,6 +1000,9 @@ async function sellToken(privateKey, tokenAddress, tokenAmount, slippagePercent 
       debugLog('⚠️ Using estimated price due to quoter failure. Consider using higher slippage.', true);
     }
     
+    // Get the next nonce for approval transaction
+    let nonce = await getNextNonce(walletAddress);
+    
     // Check if the token has any transfer restrictions
     try {
       // Check allowance
@@ -979,16 +1018,20 @@ async function sellToken(privateKey, tokenAddress, tokenAmount, slippagePercent 
         const approveTx = await tokenContract.methods.approve(PANCAKESWAP_ROUTER_ADDRESS, approveAmount).send({
           from: walletAddress,
           gas: 200000,
-          gasPrice: await web3.eth.getGasPrice()
+          gasPrice: await web3.eth.getGasPrice(),
+          nonce: nonce // Add the nonce for approval
         });
         
         debugLog(`Token approval successful! Hash: ${approveTx.transactionHash}`);
+        
+        // Increment nonce for the next transaction
+        nonce++;
       } else {
         debugLog('Token already approved for PancakeSwap V3 router');
       }
     } catch (error) {
       debugError('Token approval failed:', error);
-      throw new Error('Token approval failed. This token may have transfer restrictions or be a honeypot.');
+      throw new Error(`Token approval failed: ${error.message}. This token may have transfer restrictions or be a honeypot.`);
     }
     
     // Setup swap parameters
@@ -1020,13 +1063,14 @@ async function sellToken(privateKey, tokenAddress, tokenAmount, slippagePercent 
     debugLog(`Gas price: ${web3.utils.fromWei(gasPrice, 'gwei')} gwei`);
     debugLog(`Swapping ${tokenAmount} ${tokenInfo.symbol} for BNB with ${slippagePercent}% slippage`, true);
     
-    // Execute the swap
+    // Execute the swap with the current nonce (either incremented after approval or the original one)
     const tx = await web3.eth.sendTransaction({
       from: walletAddress,
       to: PANCAKESWAP_ROUTER_ADDRESS,
       data: swapData,
       gas: Math.floor(estimatedGas * 1.1), // Add 10% buffer
-      gasPrice: gasPrice
+      gasPrice: gasPrice,
+      nonce: nonce // Add the nonce
     });
     
     // Clean up wallet
@@ -1215,6 +1259,9 @@ async function buyTokenWithFeeTier(privateKey, tokenAddress, bnbAmount, slippage
       debugLog('⚠️ Using estimated price due to quoter failure. Consider using higher slippage.', true);
     }
     
+    // Get the next nonce
+    const nonce = await getNextNonce(walletAddress);
+    
     // Setup swap parameters
     const recipient = walletAddress;
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes
@@ -1252,7 +1299,8 @@ async function buyTokenWithFeeTier(privateKey, tokenAddress, bnbAmount, slippage
       data: swapData,
       value: bnbAmountWei,
       gas: Math.floor(estimatedGas * 1.1), // Add 10% buffer
-      gasPrice: gasPrice
+      gasPrice: gasPrice,
+      nonce: nonce // Add the nonce
     });
     
     // Clean up wallet
@@ -1436,6 +1484,9 @@ async function sellTokenWithFeeTier(privateKey, tokenAddress, tokenAmount, slipp
       debugLog('⚠️ Using estimated price due to quoter failure. Consider using higher slippage.', true);
     }
     
+    // Get the next nonce for approval transaction
+    let nonce = await getNextNonce(walletAddress);
+    
     // Check if the token has any transfer restrictions
     try {
       // Check allowance
@@ -1451,16 +1502,20 @@ async function sellTokenWithFeeTier(privateKey, tokenAddress, tokenAmount, slipp
         const approveTx = await tokenContract.methods.approve(PANCAKESWAP_ROUTER_ADDRESS, approveAmount).send({
           from: walletAddress,
           gas: 200000,
-          gasPrice: await web3.eth.getGasPrice()
+          gasPrice: await web3.eth.getGasPrice(),
+          nonce: nonce // Add the nonce for approval
         });
         
         debugLog(`Token approval successful! Hash: ${approveTx.transactionHash}`);
+        
+        // Increment nonce for the next transaction
+        nonce++;
       } else {
         debugLog('Token already approved for PancakeSwap V3 router');
       }
     } catch (error) {
       debugError('Token approval failed:', error);
-      throw new Error('Token approval failed. This token may have transfer restrictions or be a honeypot.');
+      throw new Error(`Token approval failed: ${error.message}. This token may have transfer restrictions or be a honeypot.`);
     }
     
     // Setup swap parameters
@@ -1492,13 +1547,14 @@ async function sellTokenWithFeeTier(privateKey, tokenAddress, tokenAmount, slipp
     debugLog(`Gas price: ${web3.utils.fromWei(gasPrice, 'gwei')} gwei`);
     debugLog(`Swapping ${tokenAmount} ${tokenInfo.symbol} for BNB with ${slippagePercent}% slippage and ${feeTier/10000}% fee tier`, true);
     
-    // Execute the swap
+    // Execute the swap with the current nonce (either incremented after approval or the original one)
     const tx = await web3.eth.sendTransaction({
       from: walletAddress,
       to: PANCAKESWAP_ROUTER_ADDRESS,
       data: swapData,
       gas: Math.floor(estimatedGas * 1.1), // Add 10% buffer
-      gasPrice: gasPrice
+      gasPrice: gasPrice,
+      nonce: nonce // Add the nonce
     });
     
     // Clean up wallet
