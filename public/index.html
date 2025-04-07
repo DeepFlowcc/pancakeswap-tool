@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FourMeme Token Trader - PancakeSwap V3</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      padding-top: 2rem;
+    }
+    .card {
+      border-radius: 1rem;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .card-header {
+      background-color: #f9fcff;
+      border-radius: 1rem 1rem 0 0 !important;
+    }
+    .btn-pancake {
+      background-color: #ffb237;
+      border-color: #ffb237;
+      color: #212529;
+    }
+    .btn-pancake:hover {
+      background-color: #ffa32b;
+      border-color: #ffa32b;
+      color: #212529;
+    }
+    .btn-medium-fee {
+      background-color: #6aabff;
+      border-color: #6aabff;
+      color: white;
+    }
+    .btn-medium-fee:hover {
+      background-color: #5596f5;
+      border-color: #5596f5;
+      color: white;
+    }
+    .form-label {
+      font-weight: 500;
+    }
+    .token-info {
+      background-color: #f0f8ff;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .loader {
+      display: none;
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-right: 0.5rem;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #ffb237;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .troubleshooting {
+      font-size: 0.9rem;
+      margin-top: 1.5rem;
+    }
+    .accordion-button:not(.collapsed) {
+      background-color: #f0f8ff;
+      color: #212529;
+    }
+    .v3-badge {
+      background-color: #ffb237;
+      color: #212529;
+      font-size: 0.8rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .fees-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      margin-left: 0.5rem;
+      font-weight: normal;
+    }
+    .fee-pills {
+      display: flex;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+    .fee-pill {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      margin: 0 0.2rem;
+      border-radius: 1rem;
+    }
+    .fee-pill.active {
+      background-color: #ffb237;
+      color: #212529;
+    }
+    .trade-actions {
+      margin-top: 1.5rem;
+    }
+    .action-group {
+      margin-bottom: 1rem;
+    }
+    .action-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="card mb-4">
+          <div class="card-header">
+            <h3 class="mb-0 text-center">FourMeme Token Trader <span class="v3-badge">V3</span></h3>
+            <p class="text-center text-muted mb-0">Buy and sell FourMeme tokens on BSC via PancakeSwap V3</p>
+          </div>
+          <div class="card-body">
+            <form id="token-form">
+              <div class="mb-3">
+                <label for="token-address" class="form-label">Token Contract Address</label>
+                <input type="text" class="form-control" id="token-address" placeholder="0x..." required>
+                <div class="form-text">Enter the FourMeme token contract address</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="private-key" class="form-label">Private Key</label>
+                <input type="password" class="form-control" id="private-key" placeholder="Your private key" required>
+                <div class="form-text text-danger">Never share your private key! This is only stored in your browser.</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="amount" class="form-label">Amount</label>
+                <input type="number" class="form-control" id="amount" step="any" min="0" placeholder="Amount to trade" required>
+              </div>
+              
+              <div class="mb-3">
+                <label for="slippage" class="form-label">Slippage Tolerance (%)</label>
+                <input type="number" class="form-control" id="slippage" value="1.0" step="0.1" min="0.1" max="100">
+                <div class="form-text">For volatile tokens, try increasing to 5-10%. V3 may require higher slippage.</div>
+              </div>
+              
+              <div class="d-flex justify-content-between">
+                <button type="button" id="get-info-btn" class="btn btn-secondary">
+                  <span id="info-loader" class="loader"></span>
+                  Get Token Info
+                </button>
+              </div>
+              
+              <div id="token-info" class="token-info mt-4" style="display: none;">
+                <h5 class="mb-3">Token Information</h5>
+                <div class="row mb-2">
+                  <div class="col-4 fw-bold">Name:</div>
+                  <div class="col-8" id="token-name">-</div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-4 fw-bold">Symbol:</div>
+                  <div class="col-8" id="token-symbol">-</div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-4 fw-bold">Decimals:</div>
+                  <div class="col-8" id="token-decimals">-</div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-4 fw-bold">Balance:</div>
+                  <div class="col-8" id="token-balance">-</div>
+                </div>
+                <div class="row">
+                  <div class="col-4 fw-bold">BNB Balance:</div>
+                  <div class="col-8" id="bnb-balance">-</div>
+                </div>
+              </div>
+              
+              <!-- Trading Actions -->
+              <div class="trade-actions">
+                <!-- Auto Fee Tier Section -->
+                <div class="action-group">
+                  <div class="action-label">Auto-select Best Fee Tier:</div>
+                  <div class="d-flex justify-content-between">
+                    <button type="button" id="buy-btn" class="btn btn-pancake">
+                      <span id="buy-loader" class="loader"></span>
+                      Buy with BNB
+                    </button>
+                    <button type="button" id="sell-btn" class="btn btn-pancake">
+                      <span id="sell-loader" class="loader"></span>
+                      Sell for BNB
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- 0.25% Fee Tier Section -->
+                <div class="action-group">
+                  <div class="action-label">Use 0.25% Fee Tier <span class="badge bg-info fees-badge">Moderate Volatility</span></div>
+                  <div class="d-flex justify-content-between">
+                    <button type="button" id="buy-medium-fee-btn" class="btn btn-medium-fee">
+                      <span id="buy-medium-loader" class="loader"></span>
+                      Buy with 0.25% Fee
+                    </button>
+                    <button type="button" id="sell-medium-fee-btn" class="btn btn-medium-fee">
+                      <span id="sell-medium-loader" class="loader"></span>
+                      Sell with 0.25% Fee
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+            
+            <div id="result-area" class="alert mt-3" style="display: none;"></div>
+            
+            <!-- Fee Tiers Information -->
+            <div class="accordion troubleshooting mt-4" id="feeAccordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingFees">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFees" aria-expanded="false" aria-controls="collapseFees">
+                    PancakeSwap V3 Fee Tiers Explained
+                  </button>
+                </h2>
+                <div id="collapseFees" class="accordion-collapse collapse" aria-labelledby="headingFees" data-bs-parent="#feeAccordion">
+                  <div class="accordion-body">
+                    <p>PancakeSwap V3 offers multiple fee tiers for different token pairs. Each fee tier is optimized for different trading conditions:</p>
+                    
+                    <ul>
+                      <li><strong>0.01% Fee</strong> - For extremely stable assets like stablecoin pairs (USDT-USDC)</li>
+                      <li><strong>0.05% Fee</strong> - For stable asset pairs with minimal price movement</li>
+                      <li><strong>0.25% Fee</strong> - For moderately volatile assets (like BNB-BUSD, standard tokens)</li>
+                      <li><strong>1.00% Fee</strong> - For highly volatile tokens, low-cap, or new tokens</li>
+                    </ul>
+                    
+                    <p><strong>When to use 0.25% fee tier:</strong></p>
+                    <ul>
+                      <li>Trading established tokens with moderate volatility</li>
+                      <li>When trading pairs that have a stable ratio (e.g., BNB with major tokens)</li>
+                      <li>For FourMeme tokens with good liquidity</li>
+                      <li>When you want to balance trading costs with slippage</li>
+                    </ul>
+                    
+                    <p><strong>Benefits of 0.25% fee tier:</strong></p>
+                    <ul>
+                      <li>Most commonly used tier for standard tokens</li>
+                      <li>Better liquidity concentration than higher fee tiers</li>
+                      <li>Lower fee than the 1% tier, saving costs on larger trades</li>
+                      <li>More stable price execution than lower fee tiers for volatile assets</li>
+                    </ul>
+                    
+                    <p>The automatic option will select the best fee tier based on available liquidity, while the 0.25% option forces the use of the 0.25% fee tier (which is the standard tier for most tokens).</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Troubleshooting Section -->
+            <div class="accordion troubleshooting mt-4" id="troubleshootingAccordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                    Troubleshooting "Execution Reverted" Errors
+                  </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#troubleshootingAccordion">
+                  <div class="accordion-body">
+                    <p>If your transaction fails with "execution reverted" errors, try these solutions:</p>
+                    <ol>
+                      <li><strong>Increase slippage tolerance:</strong> PancakeSwap V3 may require higher slippage (5-10% or more) for some tokens.</li>
+                      <li><strong>Check token restrictions:</strong> Some tokens have anti-bot measures or trading limits.</li>
+                      <li><strong>Verify liquidity:</strong> Make sure the token has sufficient liquidity on PancakeSwap V3.</li>
+                      <li><strong>Try a smaller amount:</strong> Start with a small trade to test if the token can be traded.</li>
+                      <li><strong>Check BNB balance:</strong> Ensure you have enough BNB for the trade plus gas fees.</li>
+                      <li><strong>Verify token legitimacy:</strong> Some tokens are designed as "honeypots" that cannot be sold.</li>
+                      <li><strong>Try a different fee tier:</strong> If auto-select isn't working, try manually using the 0.25% fee tier.</li>
+                    </ol>
+                    <p><strong>Note about V3:</strong> PancakeSwap V3 uses concentrated liquidity which can sometimes cause different behavior than V2. If a token doesn't trade well on V3, it might work better on V2.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html> 

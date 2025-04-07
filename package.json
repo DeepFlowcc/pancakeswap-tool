@@ -1,0 +1,30 @@
+{
+  "name": "fourmeme-pancakeswap-trader",
+  "version": "1.0.0",
+  "description": "Buy and sell FourMeme tokens on BSC via PancakeSwap using Web3.js",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "pancakeswap",
+    "bsc",
+    "web3",
+    "fourmeme",
+    "trading"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@pancakeswap/sdk": "^5.7.3",
+    "axios": "^1.6.2",
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
+    "web3": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
